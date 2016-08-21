@@ -12,12 +12,11 @@ public class PredictionNeuron extends Neuron {
 	
     public PredictionNeuron(Brain b, SensorCell sc) {
 	super(b);
-	//this.bias = 0.0;
 	this.mySensorCell = sc;
     }
 
     private void updateSensorCellWithIdealOutput() {
-        this.mySensorCell.setCurrentSense(this.lastIdealOutput);
+        this.mySensorCell.setSenseAtPredictionOffset(this.lastIdealOutput);
     }
 
     // Because this method calls updateCalculatedOutput, we need to ensure
@@ -34,14 +33,14 @@ public class PredictionNeuron extends Neuron {
     // sensory reading is
     @Override
     protected void updateErrorAndIdealOutput() {
-        this.lastIdealOutput = this.mySensorCell.getCurrentSense();
+        this.lastIdealOutput = this.mySensorCell.getSenseAtPredictionOffset();
     }
     
     // calculates the output by applying sig(weighted input sum + bias)
     @Override
     protected void updateCalculatedOutput() {
         super.updateCalculatedOutput();
-        this.mySensorCell.setCurrentSense(
+        this.mySensorCell.setSenseAtPredictionOffset(
             this.lastCalculatedOutput);
     }
 }

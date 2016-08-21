@@ -20,13 +20,6 @@ public class Neuron {
 	// value added to weighted input sum before applying the sigmoid
 	// function
 	protected double bias;
-	//protected int hashVal;
-
-	// utility variables for graph algorithms
-	protected int inputsProcessedCounter;
-	protected int outputsProcessedCounter;
-	private boolean hasCalculatedOutput;
-	private boolean hasCalculatedError;
 
 	public Neuron(Brain b) {
 		this.inputs = new HashSet<Connection>();
@@ -35,30 +28,14 @@ public class Neuron {
 		this.fanout.add(this);
 		this.bias = GaussGetter.getGauss().doubleValue();
 		this.myBrain = b;
-		//this.hashVal = Neuron.curSerialNumber++;
-		this.resetAlgState();
-	}
-	
-	// resets all algorithm state variables
-	public void resetAlgState() {
-		this.inputsProcessedCounter = this.inputs.size();
-		this.outputsProcessedCounter = this.outputs.size();
-		this.hasCalculatedOutput = false;
-		this.hasCalculatedError = false;
-		this.dfsPre = -1;
-		this.dfsPost = -1;
+		this.resetDFSState();
 	}
 
 	// utility variables for tracking outputs derived from NN computations
 	// and error calculations
 	protected double lastCalculatedOutput;
-	//protected double lastAdjustment;
 	protected double lastIdealOutput;
 	public double getError() {
-		if(!this.hasCalculatedError) {
-			this.updateErrorAndIdealOutput();
-			this.hasCalculatedError = true;
-		}
 		return this.lastIdealOutput - this.lastCalculatedOutput;
 	}
 
@@ -71,7 +48,8 @@ public class Neuron {
 	// ideal output value.
 	protected void updateBiasAndWeights() {
 		
-		// figure out how much we have to change by
+		// Since input neurons may have updated, recalculate our own
+		// output before calculating which direction to move
 		this.updateCalculatedOutput();
 		
 		// Calculate gradient of output wrt weights and bias.
@@ -79,13 +57,19 @@ public class Neuron {
 		// the magnitude.
 		double grad_mag_squared = 1.0; // from bias
 		for(Connection c : inputs) {
-			double v = c.getSrcNeuron().getLastIdealOutput();
+			// TODO: consider updating calculated output by the
+			// Ideal outputs of input connections, rather than their
+			// updated calculated outputs.
+			double v = c.getSrcNeuron().getLastCalculatedOutput();
 			grad_mag_squared += v*v;
 		}
 		double grad_mag = Math.sqrt(grad_mag_squared);
 		double grad_frac = this.getNeuralAdjustment()/grad_mag;
 		if (this.getError() < 0.0) {
 			grad_frac = -grad_frac;
+		} else if (Math.abs(this.getError())
+			   < Neuron.noChangeThreshold) {
+			
 		}
 		
 		// Move a little bit along the gradient toward the ideal output
@@ -93,6 +77,10 @@ public class Neuron {
 		for(Connection c : inputs) {
 			c.adjustWeightBy(grad_frac);
 		}
+		
+		// now that weights have changed, update our calculated
+		// output again so other output neurons can react accordingly
+		this.updateCalculatedOutput();
 	}
 
 	// gets the fraction by which to approach the ideal output value
@@ -126,10 +114,6 @@ public class Neuron {
 	}
 	
 	public double getLastCalculatedOutput() {
-		if(!this.hasCalculatedOutput) {
-			this.updateCalculatedOutput();
-			this.hasCalculatedOutput = true;
-		}
 		return this.lastCalculatedOutput;
 	}
 
@@ -169,12 +153,16 @@ public class Neuron {
 		this.outputs.remove(c);
 	}
 	
+	public int getNumOutputs() {
+		return this.outputs.size();
+	}
+	
 	// Assigns pre and post numbers to itself
 	protected int dfsPre;
 	protected int dfsPost;
 	public void DFS(Brain.DFSClock clock) {
-		if(this.dfsPre < 0) {
-			// already have a pre number; must have found a cycle
+		if(this.dfsPre >= 0) {
+			// already visited, do nothing
 			return;
 		}
 		
@@ -183,6 +171,7 @@ public class Neuron {
 			c.getDestNeuron().DFS(clock);
 		}
 		this.dfsPost = clock.getTime();
+		clock.addToTopo(this);
 	}
 	
 	public int getDFSPre() {
@@ -192,46 +181,10 @@ public class Neuron {
 	public int getDFSPost() {
 		return this.dfsPost;
 	}
-
-	/* TODO: REVIEW THIS METHOD
-	public double getLastAdjustment() {
-		//return this.lastAdjustment;
-		return this.getError();
-	}
-	*/
 	
-	//* THESE METHODS ARE NOW COVERED BY this.resetAlgState
-	public void resetInputsProcessedCounter() {
-		this.inputsProcessedCounter=inputs.size();
-	}
-	
-	public void resetOutputsProcessedCounter() {
-		this.outputsProcessedCounter=outputs.size();
-	}
-	//*/
-	
-	// Graph algorithm helper. Called when an input neuron has calculated
-	// its output
-	public void decrementInputsProcessedCounter() {
-		-- this.inputsProcessedCounter;
-	}
-	
-	// Graph algorithm helper. Called when an output neuron has calculated
-	// its adjustment
-	public void decrementOutputsProcessedCounter() {
-		-- this.outputsProcessedCounter;
-	}
-	
-	// Graph algorithm helper. Used to determine if this neuron is ready
-	// to calculate its output.
-	public boolean allInputsProcessed() {
-		return this.inputsProcessedCounter == 0;
-	}
-	
-	// Graph algorithm helper. Used to determine if this neuron is ready
-	// to calculate its adjustment
-	public boolean allOutputsProcessed() {
-		return this.outputsProcessedCounter == 0;
+	public void resetDFSState() {
+		this.dfsPre = -1;
+		this.dfsPost = -1;
 	}
 
 	public Environment getEnvironment() {
@@ -240,7 +193,7 @@ public class Neuron {
 
 	// Simple sigmoid function, actually just ensures that output value
 	// is between 1.0 and -1.0.
-	protected static double sigmoid(double t) {
+	public static double sigmoid(double t) {
 		//return 1.0/(1.0 + Math.exp(-t)) - 0.5;
 		if(t > 1.0) {
 			return 1.0;
@@ -256,6 +209,6 @@ public class Neuron {
 			super(msg);
 		}
 	}
-
-	//protected static int curSerialNumber = 0;
+	
+	protected static final double noChangeThreshold = 1e-9;
 }

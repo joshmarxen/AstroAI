@@ -15,16 +15,19 @@ public class MemoryNeuron extends PredictionNeuron {
 		this.timePassed = timePassed;
 	}
 	
-	// Overrided method does nothing. There are no input connections,
-	// and memory neurons should not use their bias for any reason
+	// Since the memory neuron only conveys the underlying sensor cell
+	// value, there is no reason to do expensive calculations here
+	@Override
+	protected void updateCalculatedOutput() {}
+	@Override
+	protected void updateErrorAndIdealOutput() {}
 	@Override
 	protected void updateBiasAndWeights() {}
 	
-	// TODO: make sure this is applicable where its supposed to be
-	// ^ WHAT THE HELL DOES THIS MEAN
 	@Override
 	public double getLastCalculatedOutput() {
-		return this.mySensorCell.getSenseAt(-this.timePassed);
+		return this.mySensorCell.getSenseAtOffsetFromPredictionOffset(
+						-this.timePassed);
 	}
 	
 	@Override

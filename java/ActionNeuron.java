@@ -8,15 +8,16 @@ public class ActionNeuron extends PredictionNeuron {
 		super(b, sc);
 	}
 
+	// Action neurons want to learn at a different rate than prediction-
+	// calculation neurons
 	@Override
 	protected double getNeuralAdjustment() {
 		return this.myBrain.getActionNeuronAdjustment();
 	}
 	
-	/*
-	public void perturbAction(double delta) {
-		this.lastIdealOutput += delta;
-		this.updateSensorCellWithIdealOutput();
+	// Modify this method so that PERTURBED actions can be used as inputs
+	@Override
+	public double getLastCalculatedOutput() {
+		return this.mySensorCell.getSenseAtPredictionOffset();
 	}
-	*/
 }
